@@ -1,4 +1,4 @@
-use odota_core::{parse_replay, Entry};
+use odota_rust::prelude::*;
 use pyo3::prelude::*;
 
 #[pyclass]

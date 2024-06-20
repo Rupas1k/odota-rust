@@ -1,5 +1,5 @@
 [package]
-name = "odota-core"
+name = "odota-rust"
 description = "Copy of OpenDota parser in Rust"
 version = "0.1.0"
 edition = "2021"

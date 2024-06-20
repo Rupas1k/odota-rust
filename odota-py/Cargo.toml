@@ -9,6 +9,6 @@ name = "odota_py"
 
 [dependencies]
 d2-stampede = { git="https://github.com/Rupas1k/d2-stampede", features = ["mimalloc"] }
-odota-core = { git="https://github.com/Rupas1k/odota-rust" }
+odota-rust = { git="https://github.com/Rupas1k/odota-rust" }
 pyo3 = { version = "0.21.2", features = ["extension-module"] }
 serde_json = "1.0.117"

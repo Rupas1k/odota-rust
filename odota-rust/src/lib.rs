@@ -678,3 +678,8 @@ pub fn parse_replay(binary: &[u8]) -> Result<Vec<Entry>> {
 
     Ok(x)
 }
+
+pub mod prelude {
+    pub use crate::parse_replay;
+    pub use crate::Entry;
+}
