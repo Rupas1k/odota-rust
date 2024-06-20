@@ -362,7 +362,7 @@ pub fn parse_replay_py(binary: &[u8]) -> PyResult<Vec<PyEntry>> {
     })
     .map_err(|e| PyErr::new::<pyo3::exceptions::PyException, _>(format!("Unhandled error\n{e:?}")))
     .and_then(|x| {
-        x.map_err(|e: odota_core::Error| PyErr::new::<pyo3::exceptions::PyException, _>(format!("Parser error\n{e}")))
+        x.map_err(|e: odota_rust::Error| PyErr::new::<pyo3::exceptions::PyException, _>(format!("Parser error\n{e}")))
     })
 }
 
