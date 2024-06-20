@@ -10,10 +10,10 @@ The way it works is similar - it creates vector of events that you can analyze.
 
 ```toml
 [dependencies]
-odota-rust = { git = "https://github.com/Rupas1k/odota-rust", features = "mimalloc" }
+odota-rust = { git = "https://github.com/Rupas1k/odota-rust", features = ["mimalloc"] }
 ```
 
-### Example
+## Example
 
 ```rust
 use odota_rust::prelude::*;
