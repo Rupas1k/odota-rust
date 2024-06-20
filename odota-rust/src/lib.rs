@@ -2,6 +2,7 @@ use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::VecDeque;
+use std::fmt::{Display, Formatter};
 use std::mem;
 use std::rc::Rc;
 
@@ -86,6 +87,12 @@ pub struct Entry {
     pub draft_extime1: Option<u16>,
     pub networth: Option<u32>,
     pub stage: Option<u8>,
+}
+
+impl Display for Entry {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{}", serde_json::to_string_pretty(&self).unwrap())
+    }
 }
 
 impl Entry {
