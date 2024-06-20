@@ -1,0 +1,11 @@
+[project]
+name = "odota-py"
+version = "0.1.0"
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+python-source = "pysrc"
+module-name = "odota_py"

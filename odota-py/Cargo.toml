@@ -1,0 +1,15 @@
+[package]
+name = "odota-py"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+name = "odota_py"
+
+[dependencies]
+d2-stampede = { git="https://github.com/Rupas1k/d2-stampede", features = ["mimalloc"] }
+#odota-core = { git="https://github.com/Rupas1k/odota-rust" }
+odota-core = { path="../odota-core"}
+pyo3 = { version = "0.21.2", features = ["extension-module"] }
+serde_json = "1.0.117"
