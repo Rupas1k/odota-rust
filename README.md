@@ -32,7 +32,8 @@ fn main() -> std::io::Result<()> {
     };
 
     let start = std::time::Instant::now();
-    let replay = unsafe { memmap2::Mmap::map(&file)? }; // I use memmap to read replays but you don't have to
+    // I use memmap to read replays but you don't have to
+    let replay = unsafe { memmap2::Mmap::map(&file)? };
     parse_replay(&replay)
         .expect("Parser error")
         .into_iter()
