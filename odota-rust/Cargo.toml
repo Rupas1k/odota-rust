@@ -12,3 +12,6 @@ hashbrown = { version = "0.14.5", features = ["serde"] }
 serde = { version = "1.0.203", features = ["derive"] }
 serde_json = "1.0.117"
 serde_with = "3.8.1"
+
+[features]
+mimalloc = ["d2-stampede/mimalloc"]
