@@ -16,20 +16,6 @@ use d2_stampede_observers::chat::*;
 use d2_stampede_observers::game_time::*;
 use d2_stampede_observers::wards::*;
 
-#[derive(Default)]
-struct Item {
-    id: String,
-    slot: u8,
-    num_charges: u8,
-    num_secondary_charges: u8,
-}
-
-#[derive(Default)]
-struct Ability {
-    id: String,
-    level: u8,
-}
-
 #[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize, Default)]
 pub struct Entry {
@@ -109,6 +95,20 @@ impl Entry {
             ..Default::default()
         }
     }
+}
+
+#[derive(Default)]
+struct Item {
+    id: String,
+    slot: u8,
+    num_charges: u8,
+    num_secondary_charges: u8,
+}
+
+#[derive(Default)]
+struct Ability {
+    id: String,
+    level: u8,
 }
 
 #[derive(Default)]
@@ -251,15 +251,16 @@ impl Observer for App {
             dota_plus_entry.key = serde_json::to_string(&self.dota_plus_xp_map)?.into();
             self.output(dota_plus_entry)?;
 
-            let mut epilougue_entry = Entry::new(self.time(ctx)?);
-            epilougue_entry.r#type = "epilogue".to_string().into();
-            epilougue_entry.key = serde_json::to_string(&CDemoFileInfo::decode(msg)?)?.into();
-            self.output(epilougue_entry)?;
+            let mut epilogue_entry = Entry::new(self.time(ctx)?);
+            epilogue_entry.r#type = "epilogue".to_string().into();
+            epilogue_entry.key = serde_json::to_string(&CDemoFileInfo::decode(msg)?)?.into();
+            self.output(epilogue_entry)?;
 
             self.flush_log_buffer()?;
         }
         Ok(())
     }
+
     fn on_dota_user_message(&mut self, ctx: &Context, msg_type: EDotaUserMessages, msg: &[u8]) -> Result<()> {
         if msg_type == EDotaUserMessages::DotaUmSpectatorPlayerUnitOrders && self.time(ctx).is_ok() {
             let order = CdotaUserMsgSpectatorPlayerUnitOrders::decode(msg)?;
