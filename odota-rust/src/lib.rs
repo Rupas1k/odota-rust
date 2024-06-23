@@ -666,7 +666,7 @@ impl WardsObserver for App {
 }
 
 pub fn parse_replay(binary: &[u8]) -> Result<Vec<Entry>> {
-    let mut parser = Parser::new(binary);
+    let mut parser = Parser::new(binary)?;
 
     let game_time = parser.register_observer::<GameTime>();
     let chat = parser.register_observer::<Chat>();
@@ -679,7 +679,7 @@ pub fn parse_replay(binary: &[u8]) -> Result<Vec<Entry>> {
     chat.borrow_mut().register_observer(app.clone());
     wards.borrow_mut().register_observer(app.clone());
 
-    parser.run()?;
+    parser.run_to_end()?;
 
     let x = mem::take(&mut app.borrow_mut().output);
 
