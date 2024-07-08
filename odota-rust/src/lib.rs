@@ -182,16 +182,16 @@ impl App {
 
     #[inline(always)]
     fn get_hero_item(&self, ctx: &Context, hero: &Entity, idx: u8) -> Result<Item> {
-        let entity_names = ctx.string_tables.get_by_name("EntityNames")?;
+        let entity_names = ctx.string_tables().get_by_name("EntityNames")?;
         let item_handle: usize = property!(hero, "m_hItems.{idx:04}");
 
         if item_handle == 0xFFFFFF {
             bail!("{} slot is empty for {}", idx, hero.class().name())
         }
 
-        let item_entity = ctx.entities.get_by_handle(item_handle)?;
+        let item_entity = ctx.entities().get_by_handle(item_handle)?;
         let item_name = entity_names
-            .get_entry_by_index(property!(item_entity, "m_pEntity.m_nameStringableIndex"))?
+            .get_row_by_index(property!(item_entity, "m_pEntity.m_nameStringableIndex"))?
             .key();
 
         Ok(Item {
@@ -226,16 +226,16 @@ impl App {
 
     #[inline(always)]
     fn get_hero_ability(&self, ctx: &Context, hero: &Entity, idx: i32) -> Result<Ability> {
-        let entity_names = ctx.string_tables.get_by_name("EntityNames")?;
+        let entity_names = ctx.string_tables().get_by_name("EntityNames")?;
         let ability_handle: usize = property!(hero, "m_hAbilities.{idx:04}");
 
         if ability_handle == 0xFFFFFF {
             bail!("{} ability doesn't exist for {}", idx, hero.class().name());
         }
 
-        let ability_entity = ctx.entities.get_by_handle(ability_handle)?;
+        let ability_entity = ctx.entities().get_by_handle(ability_handle)?;
         let ability_name = entity_names
-            .get_entry_by_index(property!(ability_entity, "m_pEntity.m_nameStringableIndex"))?
+            .get_row_by_index(property!(ability_entity, "m_pEntity.m_nameStringableIndex"))?
             .key();
 
         Ok(Ability {
@@ -246,7 +246,7 @@ impl App {
 }
 
 impl Observer for App {
-    fn on_packet(&mut self, ctx: &Context, msg_type: EDemoCommands, msg: &[u8]) -> Result<()> {
+    fn on_demo_command(&mut self, ctx: &Context, msg_type: EDemoCommands, msg: &[u8]) -> ObserverResult {
         if msg_type == EDemoCommands::DemFileInfo {
             let mut cosmetics_entry = Entry::new(self.time(ctx)?);
             cosmetics_entry.r#type = "cosmetics".to_string().into();
@@ -268,11 +268,11 @@ impl Observer for App {
         Ok(())
     }
 
-    fn on_dota_user_message(&mut self, ctx: &Context, msg_type: EDotaUserMessages, msg: &[u8]) -> Result<()> {
+    fn on_dota_user_message(&mut self, ctx: &Context, msg_type: EDotaUserMessages, msg: &[u8]) -> ObserverResult {
         if msg_type == EDotaUserMessages::DotaUmSpectatorPlayerUnitOrders && self.time(ctx).is_ok() {
-            let order = CdotaUserMsgSpectatorPlayerUnitOrders::decode(msg)?;
+            let order = CDotaUserMsgSpectatorPlayerUnitOrders::decode(msg)?;
             let mut entry = Entry::new(self.time(ctx)?);
-            if let Ok(entity) = ctx.entities.get_by_index(order.entindex() as usize) {
+            if let Ok(entity) = ctx.entities().get_by_index(order.entindex() as usize) {
                 entry.r#type = "actions".to_string().into();
                 entry.slot = self.get_player_slot(entity).ok();
                 entry.key = order.order_type().to_string().into();
@@ -280,7 +280,7 @@ impl Observer for App {
             }
         }
         if msg_type == EDotaUserMessages::DotaUmLocationPing {
-            let ping = CdotaUserMsgLocationPing::decode(msg)?;
+            let ping = CDotaUserMsgLocationPing::decode(msg)?;
             self.ping_count += 1;
             if self.ping_count > 100000 {
                 return Ok(());
@@ -294,7 +294,7 @@ impl Observer for App {
     }
 
     fn on_tick_start(&mut self, ctx: &Context) -> Result<()> {
-        if let Ok(grp) = ctx.entities.get_by_class_name("CDOTAGamerulesProxy") {
+        if let Ok(grp) = ctx.entities().get_by_class_name("CDOTAGamerulesProxy") {
             let draft_stage: i32 = property!(grp, "m_pGameRules.m_nGameState");
             if draft_stage == 2 {
                 if !self.is_draft_start_time_processed {
@@ -358,7 +358,7 @@ impl Observer for App {
             }
         }
 
-        if let Ok(pr) = ctx.entities.get_by_class_name("CDOTA_PlayerResource") {
+        if let Ok(pr) = ctx.entities().get_by_class_name("CDOTA_PlayerResource") {
             if !self.init {
                 let mut added = 0;
                 let mut i = 0;
@@ -402,9 +402,9 @@ impl Observer for App {
                     let team_slot: i32 = property!(pr, "m_vecPlayerTeamData.{i:04}.m_iTeamSlot");
 
                     let data_team = if player_team == 2 {
-                        ctx.entities.get_by_class_name("CDOTA_DataRadiant")?
+                        ctx.entities().get_by_class_name("CDOTA_DataRadiant")?
                     } else {
-                        ctx.entities.get_by_class_name("CDOTA_DataDire")?
+                        ctx.entities().get_by_class_name("CDOTA_DataDire")?
                     };
 
                     let mut entry = Entry::new(self.time(ctx)?);
@@ -430,7 +430,7 @@ impl Observer for App {
                     entry.roshans_killed = try_property!(data_team, "m_vecDataTeam.{team_slot:04}.m_iRoshanKills");
                     entry.networth = try_property!(data_team, "m_vecDataTeam.{team_slot:04}.m_iNetWorth");
                     entry.stage = try_property!(
-                        ctx.entities.get_by_class_name("CDOTAGamerulesProxy")?,
+                        ctx.entities().get_by_class_name("CDOTAGamerulesProxy")?,
                         "m_pGameRules.m_nGameState"
                     );
 
@@ -440,7 +440,7 @@ impl Observer for App {
                         entry.xp = try_property!(data_team, "m_vecDataTeam.{team_slot:04}.m_iTotalEarnedXP");
                         entry.stuns = try_property!(data_team, "m_vecDataTeam.{team_slot:04}.m_fStuns");
 
-                        if let Ok(hero) = ctx.entities.get_by_handle(hero_handle) {
+                        if let Ok(hero) = ctx.entities().get_by_handle(hero_handle) {
                             entry.x = try_property!(hero, "CBodyComponent.m_cellX");
                             entry.y = try_property!(hero, "CBodyComponent.m_cellY");
                             entry.unit = hero.class().name().to_string().into();
@@ -556,7 +556,7 @@ impl Observer for App {
         Ok(())
     }
 
-    fn on_combat_log(&mut self, _ctx: &Context, cle: &CombatLog) -> Result<()> {
+    fn on_combat_log(&mut self, _ctx: &Context, cle: &CombatLogEntry) -> Result<()> {
         let time = cle.timestamp()?;
         let mut entry = Entry::new(time);
         entry.r#type = format!("{:?}", cle.type_()).into();
@@ -595,7 +595,7 @@ impl Observer for App {
 }
 
 impl ChatObserver for App {
-    fn on_chat_event(&mut self, ctx: &Context, event: &CdotaUserMsgChatEvent) -> Result<()> {
+    fn on_chat_event(&mut self, ctx: &Context, event: &CDotaUserMsgChatEvent) -> Result<()> {
         let mut entry = Entry::new(self.time(ctx)?);
         entry.r#type = format!("{:?}", event.r#type()).into();
         entry.player1 = event.playerid_1().into();
@@ -604,7 +604,7 @@ impl ChatObserver for App {
         self.output(entry)
     }
 
-    fn on_all_chat_message(&mut self, ctx: &Context, event: &CdotaUserMsgChatMessage) -> Result<()> {
+    fn on_all_chat_message(&mut self, ctx: &Context, event: &CDotaUserMsgChatMessage) -> Result<()> {
         let mut entry = Entry::new(self.time(ctx)?);
         entry.r#type = if event.channel_type() == 11 {
             "chat".to_string().into()
@@ -616,7 +616,7 @@ impl ChatObserver for App {
         self.output(entry)
     }
 
-    fn on_chat_wheel(&mut self, ctx: &Context, event: &CdotaUserMsgChatWheel) -> Result<()> {
+    fn on_chat_wheel(&mut self, ctx: &Context, event: &CDotaUserMsgChatWheel) -> Result<()> {
         let mut entry = Entry::new(self.time(ctx)?);
         entry.r#type = "chatwheel".to_string().into();
         entry.slot = event.player_id().into();
@@ -651,7 +651,7 @@ impl WardsObserver for App {
         entry.z = z.into();
 
         let owner_handle: usize = property!(ward, "m_hOwnerEntity");
-        if let Ok(owner) = ctx.entities.get_by_handle(owner_handle) {
+        if let Ok(owner) = ctx.entities().get_by_handle(owner_handle) {
             entry.slot = self.get_player_slot(owner)?.into();
         }
 
