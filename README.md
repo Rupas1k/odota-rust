@@ -10,7 +10,7 @@ The way it works is similar - it creates vector of events that you can analyze.
 
 ```toml
 [dependencies]
-odota-rust = { git = "https://github.com/Rupas1k/odota-rust", features = ["mimalloc"] }
+odota-rust = { git = "https://github.com/Rupas1k/odota-rust" }
 ```
 
 ## Example
@@ -32,7 +32,7 @@ fn main() -> std::io::Result<()> {
     };
 
     let start = std::time::Instant::now();
-    // I use memmap to read replays but you don't have to
+    
     let replay = unsafe { memmap2::Mmap::map(&file)? };
     parse_replay(&replay)
         .expect("Parser error")
@@ -45,6 +45,7 @@ fn main() -> std::io::Result<()> {
                      x.valuename.unwrap()
             )
         });
+    
     println!("Elapsed: {:?}", start.elapsed());
 
     Ok(())
