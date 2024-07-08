@@ -8,6 +8,6 @@ crate-type = ["cdylib"]
 name = "odota_py"
 
 [dependencies]
-odota-rust = { git="https://github.com/Rupas1k/odota-rust", features = ["mimalloc"] }
-pyo3 = { version = "0.21.2", features = ["extension-module"] }
-serde_json = "1.0.117"
+odota-rust = { git = "https://github.com/Rupas1k/odota-rust" }
+pyo3 = { version = "0.21", features = ["extension-module"] }
+serde_json = "1.0"
