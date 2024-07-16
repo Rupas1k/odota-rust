@@ -5,8 +5,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-d2-stampede = "0.1"
-d2-stampede-observers = "0.1"
+d2-stampede = "0.2"
+d2-stampede-observers = "0.2"
 anyhow = "1.0"
 hashbrown = { version = "0.14", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }

@@ -13,7 +13,6 @@ pub use anyhow::Result;
 use d2_stampede::prelude::*;
 use d2_stampede::proto::*;
 
-use d2_stampede_observers::chat::*;
 use d2_stampede_observers::game_time::*;
 use d2_stampede_observers::wards::*;
 
@@ -143,6 +142,7 @@ struct App {
     log_buffer: VecDeque<Entry>,
 }
 
+#[observer]
 impl App {
     #[inline(always)]
     fn output(&mut self, mut e: Entry) -> Result<()> {
@@ -243,34 +243,31 @@ impl App {
             level: property!(ability_entity, "m_iLevel"),
         })
     }
-}
 
-impl Observer for App {
-    fn on_demo_command(&mut self, ctx: &Context, msg_type: EDemoCommands, msg: &[u8]) -> ObserverResult {
-        if msg_type == EDemoCommands::DemFileInfo {
-            let mut cosmetics_entry = Entry::new(self.time(ctx)?);
-            cosmetics_entry.r#type = "cosmetics".to_string().into();
-            cosmetics_entry.key = serde_json::to_string(&self.cosmetics_map)?.into();
-            self.output(cosmetics_entry)?;
+    #[on_message]
+    fn handle_demo_cmd(&mut self, ctx: &Context, file_info: CDemoFileInfo) -> ObserverResult {
+        let mut cosmetics_entry = Entry::new(self.time(ctx)?);
+        cosmetics_entry.r#type = "cosmetics".to_string().into();
+        cosmetics_entry.key = serde_json::to_string(&self.cosmetics_map)?.into();
+        self.output(cosmetics_entry)?;
 
-            let mut dota_plus_entry = Entry::new(self.time(ctx)?);
-            dota_plus_entry.r#type = "dotaplus".to_string().into();
-            dota_plus_entry.key = serde_json::to_string(&self.dota_plus_xp_map)?.into();
-            self.output(dota_plus_entry)?;
+        let mut dota_plus_entry = Entry::new(self.time(ctx)?);
+        dota_plus_entry.r#type = "dotaplus".to_string().into();
+        dota_plus_entry.key = serde_json::to_string(&self.dota_plus_xp_map)?.into();
+        self.output(dota_plus_entry)?;
 
-            let mut epilogue_entry = Entry::new(self.time(ctx)?);
-            epilogue_entry.r#type = "epilogue".to_string().into();
-            epilogue_entry.key = serde_json::to_string(&CDemoFileInfo::decode(msg)?)?.into();
-            self.output(epilogue_entry)?;
+        let mut epilogue_entry = Entry::new(self.time(ctx)?);
+        epilogue_entry.r#type = "epilogue".to_string().into();
+        epilogue_entry.key = serde_json::to_string(&file_info)?.into();
+        self.output(epilogue_entry)?;
 
-            self.flush_log_buffer()?;
-        }
+        self.flush_log_buffer()?;
         Ok(())
     }
 
-    fn on_dota_user_message(&mut self, ctx: &Context, msg_type: EDotaUserMessages, msg: &[u8]) -> ObserverResult {
-        if msg_type == EDotaUserMessages::DotaUmSpectatorPlayerUnitOrders && self.time(ctx).is_ok() {
-            let order = CDotaUserMsgSpectatorPlayerUnitOrders::decode(msg)?;
+    #[on_message]
+    fn handle_unit_order(&mut self, ctx: &Context, order: CDotaUserMsgSpectatorPlayerUnitOrders) -> ObserverResult {
+        if self.time(ctx).is_ok() {
             let mut entry = Entry::new(self.time(ctx)?);
             if let Ok(entity) = ctx.entities().get_by_index(order.entindex() as usize) {
                 entry.r#type = "actions".to_string().into();
@@ -279,21 +276,24 @@ impl Observer for App {
                 self.output(entry)?;
             }
         }
-        if msg_type == EDotaUserMessages::DotaUmLocationPing {
-            let ping = CDotaUserMsgLocationPing::decode(msg)?;
-            self.ping_count += 1;
-            if self.ping_count > 100000 {
-                return Ok(());
-            }
-            let mut entry = Entry::new(self.time(ctx)?);
-            entry.r#type = "pings".to_string().into();
-            entry.slot = ping.player_id().into();
-            self.output(entry)?;
-        }
         Ok(())
     }
 
-    fn on_tick_start(&mut self, ctx: &Context) -> Result<()> {
+    #[on_message]
+    fn handle_ping(&mut self, ctx: &Context, location_ping: CDotaUserMsgLocationPing) -> ObserverResult {
+        self.ping_count += 1;
+        if self.ping_count > 100000 {
+            return Ok(());
+        }
+        let mut entry = Entry::new(self.time(ctx)?);
+        entry.r#type = "pings".to_string().into();
+        entry.slot = location_ping.player_id().into();
+        self.output(entry)?;
+        Ok(())
+    }
+
+    #[on_tick_start]
+    fn tick_start(&mut self, ctx: &Context) -> Result<()> {
         if let Ok(grp) = ctx.entities().get_by_class_name("CDOTAGamerulesProxy") {
             let draft_stage: i32 = property!(grp, "m_pGameRules.m_nGameState");
             if draft_stage == 2 {
@@ -543,8 +543,9 @@ impl Observer for App {
         Ok(())
     }
 
+    #[on_entity]
     fn on_entity(&mut self, _ctx: &Context, event: EntityEvents, entity: &Entity) -> Result<()> {
-        if event == EntityEvents::Entered && entity.class().name() == "CDOTAWearableItem" {
+        if event == EntityEvents::Created && entity.class().name() == "CDOTAWearableItem" {
             let account_id: u64 = property!(entity, "m_iAccountID");
             let item_definition_idx: i32 = property!(entity, "m_iItemDefinitionIndex");
             if account_id > 0 {
@@ -556,46 +557,46 @@ impl Observer for App {
         Ok(())
     }
 
-    fn on_combat_log(&mut self, _ctx: &Context, cle: &CombatLogEntry) -> Result<()> {
+    #[on_combat_log]
+    fn handle_cle(&mut self, _ctx: &Context, cle: &CombatLogEntry) -> Result<()> {
         let time = cle.timestamp()?;
         let mut entry = Entry::new(time);
-        entry.r#type = format!("{:?}", cle.type_()).into();
+        entry.r#type = format!("{:?}", cle.r#type()).into();
         entry.attackername = cle.attacker_name().ok().map(|x| x.into());
         entry.targetname = cle.target_name().ok().map(|x| x.into());
         entry.sourcename = cle.damage_source_name().ok().map(|x| x.into());
         entry.targetsourcename = cle.target_source_name().ok().map(|x| x.into());
         entry.inflictor = cle.inflictor_name().ok().map(|x| x.into());
-        entry.attackerhero = cle.attacker_hero().ok();
-        entry.targethero = cle.target_hero().ok();
-        entry.attackerillusion = cle.attacker_illusion().ok();
+        entry.attackerhero = cle.is_attacker_hero().ok();
+        entry.targethero = cle.is_target_hero().ok();
+        entry.attackerillusion = cle.is_attacker_illusion().ok();
         entry.value = cle.value().ok();
         entry.stun_duration = cle.stun_duration().ok().filter(|&stun| stun > 0.0);
         entry.slow_duration = cle.slow_duration().ok().filter(|&slow| slow > 0.0);
 
-        if cle.type_() == DotaCombatlogTypes::DotaCombatlogPurchase {
+        if cle.r#type() == DotaCombatlogTypes::DotaCombatlogPurchase {
             entry.valuename = cle.value_name().ok().map(|x| x.into());
         }
-        if cle.type_() == DotaCombatlogTypes::DotaCombatlogGold {
+        if cle.r#type() == DotaCombatlogTypes::DotaCombatlogGold {
             entry.gold_reason = cle.gold_reason().ok();
         }
-        if cle.type_() == DotaCombatlogTypes::DotaCombatlogXp {
+        if cle.r#type() == DotaCombatlogTypes::DotaCombatlogXp {
             entry.xp_reason = cle.xp_reason().ok();
         }
 
-        if cle.type_() == DotaCombatlogTypes::DotaCombatlogGameState && cle.value()? == 6 {
+        if cle.r#type() == DotaCombatlogTypes::DotaCombatlogGameState && cle.value()? == 6 {
             self.post_game = true;
         }
 
-        if cle.type_() as u32 <= 19 {
+        if cle.r#type() as u32 <= 19 {
             self.output(entry)?;
         }
 
         Ok(())
     }
-}
 
-impl ChatObserver for App {
-    fn on_chat_event(&mut self, ctx: &Context, event: &CDotaUserMsgChatEvent) -> Result<()> {
+    #[on_message]
+    fn on_chat_event(&mut self, ctx: &Context, event: CDotaUserMsgChatEvent) -> Result<()> {
         let mut entry = Entry::new(self.time(ctx)?);
         entry.r#type = format!("{:?}", event.r#type()).into();
         entry.player1 = event.playerid_1().into();
@@ -603,8 +604,9 @@ impl ChatObserver for App {
         entry.value = event.value().into();
         self.output(entry)
     }
-
-    fn on_all_chat_message(&mut self, ctx: &Context, event: &CDotaUserMsgChatMessage) -> Result<()> {
+    
+    #[on_message]
+    fn on_all_chat_message(&mut self, ctx: &Context, event: CDotaUserMsgChatMessage) -> Result<()> {
         let mut entry = Entry::new(self.time(ctx)?);
         entry.r#type = if event.channel_type() == 11 {
             "chat".to_string().into()
@@ -615,8 +617,9 @@ impl ChatObserver for App {
         entry.key = event.message_text().to_string().into();
         self.output(entry)
     }
-
-    fn on_chat_wheel(&mut self, ctx: &Context, event: &CDotaUserMsgChatWheel) -> Result<()> {
+    
+    #[on_message]
+    fn on_chat_wheel(&mut self, ctx: &Context, event: CDotaUserMsgChatWheel) -> Result<()> {
         let mut entry = Entry::new(self.time(ctx)?);
         entry.r#type = "chatwheel".to_string().into();
         entry.slot = event.player_id().into();
@@ -624,6 +627,7 @@ impl ChatObserver for App {
         self.output(entry)
     }
 }
+
 
 impl GameTimeObserver for App {
     fn on_game_started(&mut self, _ctx: &Context, start_time: f32) -> Result<()> {
@@ -669,14 +673,12 @@ pub fn parse_replay(binary: &[u8]) -> Result<Vec<Entry>> {
     let mut parser = Parser::new(binary)?;
 
     let game_time = parser.register_observer::<GameTime>();
-    let chat = parser.register_observer::<Chat>();
     let wards = parser.register_observer::<Wards>();
     let app = parser.register_observer::<App>();
 
     app.borrow_mut().game_time = game_time.clone();
 
     game_time.borrow_mut().register_observer(app.clone());
-    chat.borrow_mut().register_observer(app.clone());
     wards.borrow_mut().register_observer(app.clone());
 
     parser.run_to_end()?;
